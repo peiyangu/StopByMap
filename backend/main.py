@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 import requests, os
 from dotenv import load_dotenv
@@ -22,7 +22,6 @@ def get_route(
         destination: str = Query(...),
     waypoints: str = Query("", description="カンマ区切りの経由地リスト"),
     avoid_tolls: bool = Query(False),
-    request: Request = None,
     ):
     """Google Directions APIを呼び出して経路情報を返す"""
     api_key = os.getenv("GOOGLE_MAPS_API_KEY")
@@ -45,9 +44,6 @@ def get_route(
 
     if avoid_tolls:
         # 有料道路を回避する設定
-        params["avoid"] = "tolls"
-
-    if avoid_tolls:
         params["avoid"] = "tolls"
 
     res = requests.get(base_url, params=params)

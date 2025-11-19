@@ -7,6 +7,7 @@ import {
   DirectionsService,
   DirectionsRenderer,
 } from "@react-google-maps/api";
+import "./RouteForm.css";
 
 const libraries = ["places"];
 
@@ -18,6 +19,7 @@ export default function RouteForm() {
   const [endPosition, setEndPosition] = useState(null);
   const [waypointPositions, setWaypointPositions] = useState([]);
   const [directions, setDirections] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
   const [avoidTolls, setAvoidTolls] = useState(false);
 
   const startRef = useRef(null);
@@ -80,6 +82,13 @@ export default function RouteForm() {
   };
 
   const handleSearch = () => {
+    // 入力チェック: 出発地と目的地の両方が必要
+    if (!start || !end) {
+      setErrorMessage("出発地か目的地が空欄です");
+      return;
+    }
+    setErrorMessage("");
+
     if (startRef.current) handlePlaceChanged(startRef, setStart, setStartPosition);
     if (endRef.current) handlePlaceChanged(endRef, setEnd, setEndPosition);
     waypointRefs.current.forEach((ref, index) => {
@@ -102,150 +111,211 @@ export default function RouteForm() {
 
   return (
     <LoadScript googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY} libraries={libraries}>
-      <div style={{ padding: "20px" }}>
-        <div style={{ marginBottom: "15px" }}>
-          <label htmlFor="start-input" style={{ display: "block", marginBottom: "5px" }}>出発地：</label>
-          <StandaloneSearchBox
-            onLoad={(ref) => (startRef.current = ref)}
-            onPlacesChanged={() => handlePlaceChanged(startRef, setStart, setStartPosition)}
-          >
-            <input
-              id="start-input"
-              type="text"
-              placeholder="出発地を入力"
-              value={start}
-              onChange={(e) => setStart(e.target.value)}
-              style={{ width: "300px", padding: "8px" }}
-            />
-          </StandaloneSearchBox>
-        </div>
+      <div className="route-form-container">
+        <header className="app-header">
+          <h1 className="app-title">StopByMap</h1>
+        </header>
 
-        {/* 経由地 */}
-        {waypoints.map((waypoint, index) => (
-          <div key={index} style={{ marginBottom: "15px", display: "flex", alignItems: "center" }}>
-            <div style={{ flex: 1 }}>
-              <label htmlFor={`waypoint-${index}`} style={{ display: "block", marginBottom: "5px" }}>
-                経由地 {index + 1}：
-              </label>
-              <StandaloneSearchBox
-                onLoad={(ref) => (waypointRefs.current[index] = ref)}
-                onPlacesChanged={() => {
-                  const ref = waypointRefs.current[index];
-                  if (ref) {
-                    const places = ref.getPlaces();
-                    if (places && places.length > 0) {
-                      handleWaypointChange(index, places[0].name);
-                      const newWaypointPositions = [...waypointPositions];
-                      newWaypointPositions[index] = {
-                        lat: places[0].geometry.location.lat(),
-                        lng: places[0].geometry.location.lng(),
-                      };
-                      setWaypointPositions(newWaypointPositions);
-                      // 経由地が更新されたら経路を再計算
-                      setTimeout(() => recalculateRoute(), 0);
-                    }
+        <div className="form-container">
+          <div className="input-group">
+            <label htmlFor="start-input" className="input-label">出発地</label>
+            <StandaloneSearchBox
+              onLoad={(ref) => (startRef.current = ref)}
+              onPlacesChanged={() => handlePlaceChanged(startRef, setStart, setStartPosition)}
+            >
+              <input
+                id="start-input"
+                type="text"
+                placeholder="出発地を入力"
+                value={start}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setStart(v);
+                  // 入力が消されたら位置情報をクリアし経路をリセット
+                  if (v === "") {
+                    setStartPosition(null);
+                    setDirections(null);
                   }
                 }}
-              >
-                <input
-                  id={`waypoint-${index}`}
-                  type="text"
-                  placeholder={`経由地${index + 1}を入力`}
-                  value={waypoint}
-                  onChange={(e) => handleWaypointChange(index, e.target.value)}
-                  style={{ width: "300px", padding: "8px" }}
-                />
-              </StandaloneSearchBox>
-            </div>
-            <button
-              onClick={() => handleRemoveWaypoint(index)}
-              style={{ marginLeft: "10px", padding: "8px" }}
-            >
-              削除
-            </button>
+                className="search-input"
+              />
+            </StandaloneSearchBox>
           </div>
-        ))}
 
-        <button
-          onClick={handleAddWaypoint}
-          style={{ marginBottom: "15px", padding: "8px" }}
-        >
-          経由地を追加
-        </button>
+          {/* 経由地 */}
+          {waypoints.map((waypoint, index) => (
+            <div key={index} className="input-group">
+              <div className="waypoint-container">
+                <div style={{ flex: 1 }}>
+                  <label htmlFor={`waypoint-${index}`} className="input-label">
+                    経由地 {index + 1}
+                  </label>
+                  <StandaloneSearchBox
+                    onLoad={(ref) => (waypointRefs.current[index] = ref)}
+                    onPlacesChanged={() => {
+                      const ref = waypointRefs.current[index];
+                      if (ref) {
+                        const places = ref.getPlaces();
+                        if (places && places.length > 0) {
+                          handleWaypointChange(index, places[0].name);
+                          const newWaypointPositions = [...waypointPositions];
+                          newWaypointPositions[index] = {
+                            lat: places[0].geometry.location.lat(),
+                            lng: places[0].geometry.location.lng(),
+                          };
+                          setWaypointPositions(newWaypointPositions);
+                          setTimeout(() => recalculateRoute(), 0);
+                        }
+                      }
+                    }}
+                  >
+                    <input
+                      id={`waypoint-${index}`}
+                      type="text"
+                      placeholder={`経由地${index + 1}を入力`}
+                      value={waypoint}
+                      onChange={(e) => handleWaypointChange(index, e.target.value)}
+                      className="search-input"
+                    />
+                  </StandaloneSearchBox>
+                </div>
+                <button
+                  onClick={() => handleRemoveWaypoint(index)}
+                  className="remove-waypoint"
+                  aria-label="経由地を削除"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ))}
 
-        <div style={{ marginBottom: "15px" }}>
-          <label htmlFor="end-input" style={{ display: "block", marginBottom: "5px" }}>目的地：</label>
-          <StandaloneSearchBox
-            onLoad={(ref) => (endRef.current = ref)}
-            onPlacesChanged={() => handlePlaceChanged(endRef, setEnd, setEndPosition)}
+          <button
+            onClick={handleAddWaypoint}
+            className="add-waypoint"
           >
-            <input
-              id="end-input"
-              type="text"
-              placeholder="目的地を入力"
-              value={end}
-              onChange={(e) => setEnd(e.target.value)}
-              style={{ width: "300px", padding: "8px" }}
-            />
-          </StandaloneSearchBox>
-        </div>
+            + 経由地を追加
+          </button>
 
-        <div style={{ marginBottom: "15px" }}>
-          <label style={{ display: "flex", alignItems: "center" }}>
+          <div className="input-group">
+            <label htmlFor="end-input" className="input-label">目的地</label>
+            <StandaloneSearchBox
+              onLoad={(ref) => (endRef.current = ref)}
+              onPlacesChanged={() => handlePlaceChanged(endRef, setEnd, setEndPosition)}
+            >
+              <input
+                id="end-input"
+                type="text"
+                placeholder="目的地を入力"
+                value={end}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEnd(v);
+                  // 一度設定された目的地が消された場合、位置情報をクリア
+                  if (v === "") {
+                    setEndPosition(null);
+                    setDirections(null);
+                  }
+                }}
+                className="search-input"
+              />
+            </StandaloneSearchBox>
+          </div>
+
+          <div className="checkbox-group">
             <input
               type="checkbox"
+              id="avoid-tolls"
               checked={avoidTolls}
               onChange={(e) => setAvoidTolls(e.target.checked)}
-              style={{ marginRight: "8px" }}
+              className="checkbox-input"
             />
-            有料道路を使用しない
-          </label>
+            <label htmlFor="avoid-tolls" className="checkbox-label">
+              有料道路を使用しない
+            </label>
+          </div>
+
+          <button onClick={handleSearch} className="search-button">
+            ルートを検索
+          </button>
+          {errorMessage && (
+            <div style={{ color: "#c00", marginTop: "0.5rem" }}>{errorMessage}</div>
+          )}
         </div>
 
-        <button onClick={handleSearch} style={{ padding: "8px 16px" }}>
-          検索
-        </button>
-
         {/* 地図 */}
-        <GoogleMap mapContainerStyle={{ height: "500px", width: "800px", marginTop: "20px" }} center={mapCenter} zoom={12}>
-          {/* マーカーの表示 */}
-          {startPosition && <Marker position={startPosition} label={{ text: "出発", color: "white" }} />}
-          {endPosition && <Marker position={endPosition} label={{ text: "到着", color: "white" }} />}
-          {waypointPositions.map((position, index) => 
-            position && (
+        <div className="map-container">
+          <GoogleMap
+            mapContainerStyle={{
+              height: "calc(100vh - 600px)",
+              minHeight: "400px",
+              width: "100%"
+            }}
+            center={mapCenter}
+            zoom={12}
+          >
+            {startPosition && (
               <Marker 
-                key={index} 
-                position={position} 
-                label={{ text: `経由${index + 1}`, color: "white" }}
+                position={startPosition} 
+                label={{ text: "出発", color: "white" }} 
               />
-            )
-          )}
-          
-          {/* 経路表示 */}
-          {startPosition && endPosition && !directions && (
-            <DirectionsService
-              options={{
-                origin: startPosition,
-                destination: endPosition,
-                travelMode: "DRIVING",
-                waypoints: waypointPositions
-                  .filter(pos => pos !== null)
-                  .map(pos => ({
-                    location: pos,
-                    stopover: true
-                  })),
-                optimizeWaypoints: true,
-                avoidTolls: avoidTolls,
-                provideRouteAlternatives: true
-              }}
-              callback={(result, status) => {
-                if (status === "OK" && result) setDirections(result);
-              }}
-            />
-          )}
-
-          {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: true }}/>}
-        </GoogleMap>
+            )}
+            {endPosition && (
+              <Marker 
+                position={endPosition} 
+                label={{ text: "到着", color: "white" }} 
+              />
+            )}
+            {waypointPositions.map((position, index) => {
+              return position ? (
+                <Marker 
+                  key={index} 
+                  position={position} 
+                  label={{ text: `経由${index + 1}`, color: "white" }}
+                />
+              ) : null;
+            })}
+            {startPosition && (
+              <Marker 
+                position={startPosition} 
+                label={{ text: "出発", color: "white" }} 
+              />
+            )}
+            {endPosition && (
+              <Marker 
+                position={endPosition} 
+                label={{ text: "到着", color: "white" }} 
+              />
+            )}
+            {startPosition && endPosition && !directions && (
+              <DirectionsService
+                options={{
+                  origin: startPosition,
+                  destination: endPosition,
+                  travelMode: "DRIVING",
+                  waypoints: waypointPositions
+                    .filter(pos => pos !== null)
+                    .map(pos => ({
+                      location: pos,
+                      stopover: true
+                    })),
+                  optimizeWaypoints: true,
+                  avoidTolls: avoidTolls,
+                  provideRouteAlternatives: true
+                }}
+                callback={(result, status) => {
+                  if (status === "OK" && result) setDirections(result);
+                }}
+              />
+            )}
+            {directions && (
+              <DirectionsRenderer 
+                directions={directions}
+                options={{ suppressMarkers: true }}
+              />
+            )}
+          </GoogleMap>
+        </div>
       </div>
     </LoadScript>
   );
